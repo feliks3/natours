@@ -5,6 +5,7 @@ const port = 8000;
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
+    message: "hello world",
   });
 });
 app.listen(port, () => {
