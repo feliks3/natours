@@ -12,6 +12,8 @@ app.get('/', (req, res) => {
   });
 });
 
+console.log('app');
+
 app.route('/api/v1/tours').get(tourController.getAllTours);
 
 const DB =
