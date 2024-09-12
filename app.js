@@ -8,7 +8,7 @@ app.get('/', (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'hello world',
-    count: 5,
+    count: 7,
   });
 });
 
