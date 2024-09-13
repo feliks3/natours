@@ -1,4 +1,3 @@
-// routes/applicationRoutes.js
 const express = require('express');
 const {
   getApplications,
@@ -10,16 +9,62 @@ const { authenticate } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// 获取应用程序列表
+/**
+ * @swagger
+ * /api/applications:
+ *   get:
+ *     summary: Get all applications
+ *     responses:
+ *       200:
+ *         description: List of applications
+ */
 router.get('/', authenticate, getApplications);
 
-// 创建新的应用程序
+/**
+ * @swagger
+ * /api/applications:
+ *   post:
+ *     summary: Create a new application
+ *     responses:
+ *       201:
+ *         description: Application created
+ */
 router.post('/', authenticate, createApplication);
 
-// 删除应用程序
+/**
+ * @swagger
+ * /api/applications/{id}:
+ *   delete:
+ *     summary: Delete an application
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The application ID
+ *     responses:
+ *       200:
+ *         description: Application deleted
+ */
 router.delete('/:id', authenticate, deleteApplication);
 
-// 更新应用程序
+/**
+ * @swagger
+ * /api/applications/{id}:
+ *   put:
+ *     summary: Update an application
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The application ID
+ *     responses:
+ *       200:
+ *         description: Application updated
+ */
 router.put('/:id', authenticate, updateApplication);
 
 module.exports = router;

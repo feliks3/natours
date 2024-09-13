@@ -1,93 +1,142 @@
-// controllers/applicationController.js
-
 const Application = require('../models/Application');
 
-// 获取当前用户的所有应用程序，支持分页
 exports.getApplications = async (req, res) => {
-  console.log('req.query', req.query);
-  const { page = 1, limit = 5 } = req.query; // 从请求的查询参数中获取页码和每页数量，默认值为1和5
-  console.log('page', page);
-  console.log('limit', limit);
+  const {
+    page = 1,
+    limit = 5,
+    search = '',
+    filter = 'name',
+    comparison = 'gte',
+  } = req.query;
+  console.log(req.query);
   try {
-    // 计算要跳过的文档数量
     const skip = (page - 1) * limit;
+    let searchQuery = { isDeleted: false, userId: req.user };
 
-    // 获取当前页的数据
-    const applications = await Application.find({ userId: req.user })
-      .limit(limit * 1) // 设置每页显示的数量
-      .skip(skip) // 跳过前面几页的数据
+    if (search) {
+      if (['income', 'expenses', 'assets', 'liabilities'].includes(filter)) {
+        const searchNumber = parseFloat(search.trim());
+
+        if (!isNaN(searchNumber)) {
+          searchQuery[filter] = { [`$${comparison}`]: searchNumber };
+        } else {
+          return res
+            .status(400)
+            .json({ message: 'Invalid search value for numeric field.' });
+        }
+      } else {
+        searchQuery[filter] = { $regex: search, $options: 'i' };
+      }
+    }
+
+    const applications = await Application.find(searchQuery)
+      .limit(limit * 1)
+      .skip(skip)
       .exec();
 
-    // 获取总的记录数以计算总页数
-    const totalCount = await Application.countDocuments({ userId: req.user });
+    const totalCount = await Application.countDocuments(searchQuery);
 
     res.json({
-      applications, // 当前页的数据
-      totalPages: Math.ceil(totalCount / limit), // 计算总页数
-      currentPage: Number(page), // 当前页码
+      applications,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: Number(page),
     });
   } catch (error) {
-    res.status(500).json({ message: '获取应用程序失败', error: error.message });
+    res
+      .status(500)
+      .json({
+        message: 'Failed to retrieve applications',
+        error: error.message,
+      });
   }
 };
 
-// 创建新的应用程序
 exports.createApplication = async (req, res) => {
   console.log('create application');
-  const { name, description } = req.body;
-
+  const {
+    name,
+    description,
+    personalDetails,
+    income,
+    expenses,
+    assets,
+    liabilities,
+  } = req.body;
   try {
     const newApplication = new Application({
       name,
       description,
+      personalDetails,
+      income,
+      expenses,
+      assets,
+      liabilities,
       userId: req.user,
     });
     await newApplication.save();
     res.status(201).json(newApplication);
   } catch (error) {
-    res.status(500).json({ message: '创建应用程序失败', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Failed to create application', error: error.message });
   }
 };
 
-// 删除应用程序
 exports.deleteApplication = async (req, res) => {
   try {
+    console.log('delete', req.params);
     const application = await Application.findById(req.params.id);
 
     if (!application || application.userId.toString() !== req.user) {
-      return res.status(404).json({ message: '应用程序不存在或无权删除' });
+      console.log('delete 1');
+      return res
+        .status(404)
+        .json({ message: 'Application not found or unauthorized to delete' });
     }
 
-    await application.remove();
-    res.json({ message: '应用程序已删除' });
+    application.isDeleted = true;
+    await application.save();
+
+    res.json({ message: 'Application marked as deleted' });
   } catch (error) {
-    res.status(500).json({ message: '删除应用程序失败', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Failed to delete application', error: error.message });
   }
 };
 
-// 更新应用程序
 exports.updateApplication = async (req, res) => {
-  // console.log('update application', req.body, req.user, req.params);
-  const { id, name, description } = req.body;
+  const {
+    name,
+    description,
+    personalDetails,
+    income,
+    expenses,
+    assets,
+    liabilities,
+  } = req.body;
   const user = req.user;
 
   try {
-    // console.log('application0', req.params.id);
     const application = await Application.findById(req.params.id);
-    // console.log('application1');
     if (!application || application.userId.toString() !== req.user) {
-      return res.status(404).json({ message: '应用程序不存在或无权更新' });
+      return res
+        .status(404)
+        .json({ message: 'Application not found or unauthorized to update' });
     }
-    // console.log('application2');
 
     application.name = name;
     application.description = description;
-    application.userId = user;
-    // console.log('before save');
+    application.personalDetails = personalDetails;
+    application.income = income;
+    application.expenses = expenses;
+    application.assets = assets;
+    application.liabilities = liabilities;
     await application.save();
-    // console.log('after save');
     res.json(application);
   } catch (error) {
-    res.status(500).json({ message: '更新应用程序失败', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'Failed to update application', error: error.message });
   }
 };

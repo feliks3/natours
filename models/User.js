@@ -1,8 +1,5 @@
-// models/User.js
-
 const mongoose = require('mongoose');
 
-// 定义用户Schema
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -15,5 +12,4 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// 创建并导出模型
 module.exports = mongoose.model('User', userSchema);

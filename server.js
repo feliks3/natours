@@ -1,34 +1,47 @@
-// server.js
-
 require('dotenv').config();
 const express = require('express');
-const connectDB = require('./config/db');
-const authRoutes = require('./routes/authRoutes');
-const applicationRoutes = require('./routes/applicationRoutes'); // 新增
 const cors = require('cors');
 const path = require('path');
+const swaggerJsDoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
 
-// 加载环境变量
-
-// 连接到数据库
 connectDB();
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(
-  cors({
-    origin: 'http://localhost:3000', // 只允许来自 http://localhost:3000 的请求
-  })
-);
-// 中间件
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Application API',
+      version: '1.0.0',
+      description: 'API Documentation for Application Management',
+    },
+    servers: [
+      {
+        url: process.env.API_URL || 'http://localhost:8001',
+      },
+    ],
+  },
+  apis: ['./routes/*.js'],
+};
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors());
 app.use(express.json());
 
-// 路由
 app.use('/api/auth', authRoutes);
-app.use('/api/applications', applicationRoutes); // 新增
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.use('/api/applications', applicationRoutes);
+
+module.exports = app;
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {});
+}
