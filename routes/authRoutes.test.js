@@ -1,44 +1,92 @@
-require('dotenv').config({ path: '.env.test' });
-const mongoose = require('mongoose');
-const User = require('../models/User');
-const app = require('../server');
 const request = require('supertest');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+const mongoose = require('mongoose');
+const app = require('../server');
+const User = require('../models/User');
+
+let mongoServer;
 
 beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  mongoServer = await MongoMemoryServer.create();
+  const uri = mongoServer.getUri();
+
+  await mongoose.disconnect();
+  await mongoose.connect(uri);
+});
+
+beforeEach(async () => {
+  await User.deleteMany({});
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.connection.close();
+  await mongoose.disconnect();
+  await mongoServer.stop();
 });
 
 describe('Authentication Routes', () => {
-  it('should register a new user successfully', async () => {
-    const response = await request(app).post('/register').send({
-      email: 'test@example.com',
-      password: 'testpassword',
+  describe('POST /api/auth/register', () => {
+    it('should register a new user successfully', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({ email: 'testuser@example.com', password: 'testpassword' });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty(
+        'message',
+        'User registered successfully'
+      );
     });
 
-    expect(response.status).toBe(201);
-    expect(response.body).toHaveProperty(
-      'message',
-      'User registered successfully'
-    );
+    it('a user already exists', async () => {
+      await request(app)
+        .post('/api/auth/register')
+        .send({ email: 'testuser@example.com', password: 'testpassword' });
+
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({ email: 'testuser@example.com', password: 'testpassword' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('message', 'User already exists');
+    });
+
+    it('should return 400 for a bad request', async () => {
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({ email: '' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toHaveProperty(
+        'message',
+        expect.stringContaining('Error registering user')
+      );
+    });
   });
 
-  it('should login an existing user successfully', async () => {
-    await User.create({ email: 'test@example.com', password: 'testpassword' });
+  describe('POST /api/auth/login', () => {
+    it('should login a user successfully', async () => {
+      await request(app)
+        .post('/api/auth/register')
+        .send({ email: 'testuser@example.com', password: 'testpassword' });
 
-    const response = await request(app).post('/login').send({
-      email: 'test@example.com',
-      password: 'testpassword',
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'testuser@example.com', password: 'testpassword' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('token');
     });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('token');
+    it('should return 401 for unauthorized access', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'testuser@example.com', password: 'wrongpassword' });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty(
+        'message',
+        'Email or password is incorrect'
+      );
+    });
   });
 });

@@ -1,4 +1,5 @@
 const Application = require('../models/Application');
+const logger = require('../config/logger');
 
 exports.getApplications = async (req, res) => {
   const {
@@ -8,8 +9,9 @@ exports.getApplications = async (req, res) => {
     filter = 'name',
     comparison = 'gte',
   } = req.query;
-  console.log(req.query);
+
   try {
+    logger.info(`Fetching applications for user: ${req.user}`);
     const skip = (page - 1) * limit;
     let searchQuery = { isDeleted: false, userId: req.user };
 
@@ -20,6 +22,9 @@ exports.getApplications = async (req, res) => {
         if (!isNaN(searchNumber)) {
           searchQuery[filter] = { [`$${comparison}`]: searchNumber };
         } else {
+          logger.warn(
+            `Invalid search value for numeric field. User: ${req.user}`
+          );
           return res
             .status(400)
             .json({ message: 'Invalid search value for numeric field.' });
@@ -36,23 +41,24 @@ exports.getApplications = async (req, res) => {
 
     const totalCount = await Application.countDocuments(searchQuery);
 
+    logger.info(`Applications fetched successfully for user: ${req.user}`);
     res.json({
       applications,
       totalPages: Math.ceil(totalCount / limit),
       currentPage: Number(page),
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: 'Failed to retrieve applications',
-        error: error.message,
-      });
+    logger.error(
+      `Error fetching applications for user: ${req.user}, Error: ${error.message}`
+    );
+    res.status(500).json({
+      message: 'Failed to retrieve applications',
+      error: error.message,
+    });
   }
 };
 
 exports.createApplication = async (req, res) => {
-  console.log('create application');
   const {
     name,
     description,
@@ -62,7 +68,9 @@ exports.createApplication = async (req, res) => {
     assets,
     liabilities,
   } = req.body;
+
   try {
+    logger.info(`Attempting to create application for user: ${req.user}`);
     const newApplication = new Application({
       name,
       description,
@@ -73,9 +81,14 @@ exports.createApplication = async (req, res) => {
       liabilities,
       userId: req.user,
     });
+
     await newApplication.save();
+    logger.info(`Application created successfully for user: ${req.user}`);
     res.status(201).json(newApplication);
   } catch (error) {
+    logger.error(
+      `Error creating application for user: ${req.user}, Error: ${error.message}`
+    );
     res
       .status(500)
       .json({ message: 'Failed to create application', error: error.message });
@@ -84,11 +97,15 @@ exports.createApplication = async (req, res) => {
 
 exports.deleteApplication = async (req, res) => {
   try {
-    console.log('delete', req.params);
+    logger.info(
+      `Attempting to delete application: ${req.params.id} for user: ${req.user}`
+    );
     const application = await Application.findById(req.params.id);
 
     if (!application || application.userId.toString() !== req.user) {
-      console.log('delete 1');
+      logger.warn(
+        `Delete failed. Application not found or unauthorized for user: ${req.user}`
+      );
       return res
         .status(404)
         .json({ message: 'Application not found or unauthorized to delete' });
@@ -97,8 +114,14 @@ exports.deleteApplication = async (req, res) => {
     application.isDeleted = true;
     await application.save();
 
-    res.json({ message: 'Application marked as deleted' });
+    logger.info(
+      `Application deleted successfully: ${req.params.id} for user: ${req.user}`
+    );
+    res.json({ message: 'Application is deleted' });
   } catch (error) {
+    logger.error(
+      `Error deleting application: ${req.params.id} for user: ${req.user}, Error: ${error.message}`
+    );
     res
       .status(500)
       .json({ message: 'Failed to delete application', error: error.message });
@@ -118,8 +141,15 @@ exports.updateApplication = async (req, res) => {
   const user = req.user;
 
   try {
+    logger.info(
+      `Attempting to update application: ${req.params.id} for user: ${user}`
+    );
     const application = await Application.findById(req.params.id);
-    if (!application || application.userId.toString() !== req.user) {
+
+    if (!application || application.userId.toString() !== user) {
+      logger.warn(
+        `Update failed. Application not found or unauthorized for user: ${user}`
+      );
       return res
         .status(404)
         .json({ message: 'Application not found or unauthorized to update' });
@@ -132,9 +162,17 @@ exports.updateApplication = async (req, res) => {
     application.expenses = expenses;
     application.assets = assets;
     application.liabilities = liabilities;
+    logger.info('application', application);
     await application.save();
+
+    logger.info(
+      `Application updated successfully: ${req.params.id} for user: ${user}`
+    );
     res.json(application);
   } catch (error) {
+    logger.error(
+      `Error updating application: ${req.params.id} for user: ${user}, Error: ${error.message}`
+    );
     res
       .status(500)
       .json({ message: 'Failed to update application', error: error.message });

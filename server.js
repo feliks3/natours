@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./loadEnv');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -7,8 +7,11 @@ const swaggerUi = require('swagger-ui-express');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
+const logger = require('./config/logger');
 
-connectDB();
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
 
 const app = express();
 
@@ -22,7 +25,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: process.env.API_URL || 'http://localhost:8001',
+        url: process.env.API_URL || 'http://localhost:8000',
       },
     ],
   },
@@ -43,5 +46,7 @@ module.exports = app;
 
 if (require.main === module) {
   const PORT = process.env.PORT || 8000;
-  app.listen(PORT, () => {});
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+  });
 }
